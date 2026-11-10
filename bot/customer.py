@@ -3,7 +3,7 @@
 from html import escape
 import time
 
-from telegram import MessageOriginChannel
+from telegram import MessageOriginChannel, MessageOriginChat
 from telegram.constants import ChatMemberStatus, ChatType
 from telegram.error import TelegramError
 
@@ -106,7 +106,7 @@ async def handle_action(update, context, action):
         elif action == "access":
             link = await s.invite(context.bot, uid)
             await show(update, context, ui.card(
-                "Your private channel is ready",
+                "Your private group is ready",
                 "Request to join using the button below. Only an active paid member "
                 "who is also in @BatnaTrades will be approved.\n\n"
                 f'<a href="{escape(link, quote=True)}">Request entry · private signals</a>\n\n'
@@ -162,8 +162,8 @@ async def handle_action(update, context, action):
     except TelegramError:
         await show(update, context, ui.card(
             "Connection needs attention",
-            "Telegram could not verify channel access. The administrator may need to "
-            "finish connecting the channels. Please try again later.",
+                "Telegram could not verify private-group access. The administrator may "
+                "need to finish connecting the group. Please try again later.",
         ), ui.back())
 
 
@@ -275,14 +275,22 @@ async def incoming(update, context):
         return
     s = context.application.bot_data["service"]
     message = update.message
-    if isinstance(message.forward_origin, MessageOriginChannel):
+    origin = message.forward_origin
+    if isinstance(origin, MessageOriginChannel):
+        forwarded_chat_id = origin.chat.id
+    elif isinstance(origin, MessageOriginChat):
+        forwarded_chat_id = origin.sender_chat.id
+    else:
+        forwarded_chat_id = None
+    if forwarded_chat_id is not None:
         if await s.is_owner(context.bot, update.effective_user.id):
             try:
                 name = await s.bind_vip(
-                    context.bot, update.effective_user.id, message.forward_origin.chat.id,
+                    context.bot, update.effective_user.id, forwarded_chat_id,
                 )
                 await message.reply_text(
-                    f"Private channel connected: {name}. Checkout remains paused until setup is complete."
+                    f"Private signals group connected: {name}. "
+                    "Checkout remains paused until setup is complete."
                 )
             except (ValueError, TelegramError) as error:
                 await message.reply_text(str(error) if isinstance(error, ValueError)
@@ -357,14 +365,14 @@ async def join_request(update, context):
 async def bot_membership(update, context):
     s = context.application.bot_data["service"]
     change = update.my_chat_member
-    if (change.chat.type == ChatType.CHANNEL
+    if (change.chat.type in (ChatType.SUPERGROUP, ChatType.CHANNEL)
             and change.new_chat_member.status == ChatMemberStatus.ADMINISTRATOR
             and not change.chat.username):
         try:
             if await s.is_owner(context.bot, change.from_user.id):
                 name = await s.bind_vip(context.bot, change.from_user.id, change.chat.id)
                 await s.notify_owner(
-                    context.bot, f"Private signals channel connected: <b>{escape(name)}</b>. "
+                    context.bot, f"Private signals group connected: <b>{escape(name)}</b>. "
                     "Checkout remains paused until the remaining setup is complete.",
                 )
         except (TelegramError, ValueError):

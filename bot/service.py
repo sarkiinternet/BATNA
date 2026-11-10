@@ -1,4 +1,4 @@
-"""Subscription and channel operations shared by handlers and scheduled jobs."""
+"""Subscription and chat operations shared by handlers and scheduled jobs."""
 
 import asyncio
 import logging
@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import psycopg
 from telegram import ChatMember
+from telegram.constants import ChatType
 from telegram.error import TelegramError
 
 from . import ui
@@ -14,6 +15,7 @@ from .config import Config, Vault
 from .store import Store, now
 
 log = logging.getLogger("batna")
+VIP_CHAT_TYPES = {ChatType.SUPERGROUP, ChatType.CHANNEL}
 
 
 class Service:
@@ -55,15 +57,23 @@ class Service:
         vip = self.store.get("vip_chat")
         if not vip:
             raise ValueError(
-                "Add the bot to the private signals channel as an administrator, "
-                "then forward a channel post here."
+                "Add the bot as an administrator of the private signals group, "
+                "then forward a group post here."
             )
+        vip_chat = await bot.get_chat(vip)
+        if vip_chat.type == ChatType.GROUP:
+            raise ValueError(
+                "Telegram identifies this as a basic group. Upgrade it to a "
+                "supergroup so the bot can manage paid access."
+            )
+        if vip_chat.type not in VIP_CHAT_TYPES or vip_chat.username:
+            raise ValueError("The signals group must be private.")
         admin = await bot.get_chat_member(vip, bot.id)
         if (admin.status != ChatMember.ADMINISTRATOR
                 or not admin.can_invite_users or not admin.can_restrict_members):
             raise ValueError(
                 "The bot needs Invite Users and Ban/Restrict Members permissions "
-                "in the private signals channel."
+                "in the private signals group."
             )
         return vip
 
@@ -81,29 +91,36 @@ class Service:
             raise ValueError("Only the creator of @BatnaTrades can configure this bot.")
         chat = await bot.get_chat(chat_id)
         public = await bot.get_chat(self.config.public_channel)
-        if chat.id == public.id or chat.type != "channel":
-            raise ValueError("Choose a separate private signals channel.")
+        if chat.id == public.id:
+            raise ValueError("Choose the separate private signals group.")
+        if chat.type == ChatType.GROUP:
+            raise ValueError(
+                "Telegram identifies this as a basic group. Upgrade it to a "
+                "supergroup so the bot can manage paid access."
+            )
+        if chat.type not in VIP_CHAT_TYPES:
+            raise ValueError("Choose a private signals supergroup.")
         if chat.username:
-            raise ValueError("The signals channel must be private for paid access control.")
+            raise ValueError("The signals group must be private for paid access control.")
         admin = await bot.get_chat_member(chat.id, bot.id)
         human = await bot.get_chat_member(chat.id, uid)
         if human.status not in (ChatMember.OWNER, ChatMember.ADMINISTRATOR):
-            raise ValueError("You must administer the private signals channel.")
+            raise ValueError("You must administer the private signals group.")
         if (admin.status != ChatMember.ADMINISTRATOR
                 or not admin.can_invite_users or not admin.can_restrict_members):
             raise ValueError("Give the bot Invite Users and Ban/Restrict Members permissions.")
         previous = self.store.get("vip_chat")
         if previous and previous != chat.id and self.store.stats()["active"]:
-            raise ValueError("Close checkout and migrate active members before changing the VIP channel.")
+            raise ValueError("Close checkout and migrate active members before changing the signals group.")
         self.store.set("vip_chat", chat.id)
         self.store.set("checkout_open", False)
         return chat.title
 
     async def invite(self, bot, uid):
         if not self.store.active(uid):
-            raise ValueError("You need an active membership to enter the signals channel.")
+            raise ValueError("You need an active membership to enter the signals group.")
         if not await self.joined(bot, uid):
-            raise ValueError("Please rejoin @BatnaTrades before accessing the private channel.")
+            raise ValueError("Please rejoin @BatnaTrades before accessing the private group.")
         vip = await self.check_permissions(bot)
         member = await bot.get_chat_member(vip, uid)
         if member.status == ChatMember.BANNED:
@@ -166,10 +183,10 @@ class Service:
                         f"We received <b>{order['amount']:.6f} USDT</b>.\n\n"
                         f"<b>Your paid month</b>\n{order['period_start']:%d %b %Y} → "
                         f"{order['period_end']:%d %b %Y, %H:%M} UTC\n\n"
-                        "Your access is ready. Tap below to request entry into the private channel.",
+                        "Your access is ready. Tap below to request entry into the private group.",
                     ), parse_mode="HTML",
                     reply_markup=ui.keyboard([
-                        ["Enter private signals channel"],
+                        ["Enter private signals group"],
                         ["My membership"],
                     ])[0],
                 )
@@ -196,7 +213,7 @@ class Service:
                             await context.bot.send_message(
                                 uid, ui.card(
                                     "Your membership has ended",
-                                    "Private-channel access has expired. Thank you for being "
+                                    "Private-group access has expired. Thank you for being "
                                     "part of Batna Trades.\n\nRenew when you're ready, "
                                 "or choose Request a refund if your completed month qualifies.",
                                 ), parse_mode="HTML", reply_markup=ui.menu(),
@@ -213,4 +230,4 @@ class Service:
                         )
                         self.store.mark_reminded(member["key"])
                 except TelegramError:
-                    log.warning("Channel maintenance deferred; check bot permissions.")
+                    log.warning("Group membership maintenance deferred; check bot permissions.")

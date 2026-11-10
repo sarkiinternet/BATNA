@@ -11,8 +11,8 @@ from .bybit import BybitError
 GUIDE = (
     "<b>Administrator controls</b>\n\n"
     "<code>/setup</code> — connection and readiness checks\n"
-    "<code>/setvip -100CHANNEL_ID</code> — bind private signals channel\n"
-    "You can also forward a post from the private channel to this bot.\n\n"
+    "<code>/setvip CHAT_ID</code> — connect the private signals group\n"
+    "You can also forward a group post from the private group to this bot.\n\n"
     "<code>/policy your refund eligibility rules</code> — publish terms\n"
     "<code>/open</code> — enable checkout after reviewing the checklist\n"
     "<code>/pause</code> — stop new invoices (existing ones are still verified)\n"
@@ -24,10 +24,10 @@ GUIDE = (
     "<code>/reply TELEGRAM_ID message</code> — answer a support request\n"
     "<code>/erase TELEGRAM_ID</code> — delete inactive member data\n\n"
     "<b>Before /open</b>\n"
-    "• Revoke the old shared private-channel invite, including the one supplied "
+    "• Revoke old shared private-group invite links, including any supplied "
     "during setup. Use only the bot's request-to-join links.\n"
     "• Audit existing members; the bot does not remove unknown legacy members.\n"
-    "• Give this bot Invite Users and Ban/Restrict Members permissions.\n"
+    "• Give this bot Invite Users and Ban/Restrict Members permissions in the group.\n"
     "• Define how a negative month is measured, trading fees, evidence required, "
     "claim deadlines (if any), and refund processing times.\n"
     "• Review the less-than-0.01 USDT invoice reference fraction.\n"
@@ -55,9 +55,9 @@ async def admin(update, context):
             lines = []
             try:
                 await s.check_permissions(context.bot)
-                lines.append("Channel permissions: ready")
+                lines.append("Telegram chat permissions: ready")
             except (ValueError, TelegramError):
-                lines.append("Channel permissions: incomplete — see setup steps below")
+                lines.append("Telegram chat permissions: incomplete — see setup steps below")
             for method, label in (("uid", "Bybit UID"), ("bep20", "USDT BEP20")):
                 try:
                     await s.bybit.destination(method)
@@ -69,9 +69,9 @@ async def admin(update, context):
             text = "<b>Connection checklist</b>\n" + "\n".join(lines) + "\n\n" + GUIDE
         elif command == "setvip":
             if not args:
-                raise ValueError("Usage: /setvip -100CHANNEL_ID")
+                raise ValueError("Usage: /setvip CHAT_ID")
             name = await s.bind_vip(context.bot, uid, int(args[0]))
-            text = f"Private channel connected: <b>{escape(name)}</b>.\n\nCheckout is paused. Run /setup."
+            text = f"Private signals group connected: <b>{escape(name)}</b>.\n\nCheckout is paused. Run /setup."
         elif command == "policy":
             policy = update.message.text.partition(" ")[2].strip()
             if len(policy) < 80 or len(policy) > 1800:
@@ -225,5 +225,5 @@ async def admin(update, context):
     except (ValueError, BybitError) as error:
         text = escape(str(error))
     except TelegramError:
-        text = "Telegram could not complete this action. Check channel IDs and administrator permissions."
+        text = "Telegram could not complete this action. Check the chat ID and administrator permissions."
     await update.message.reply_text(text[:4096], parse_mode="HTML")

@@ -60,7 +60,7 @@ async def post_init(application):
     )
     await application.bot.set_my_description(
         "Join Batna Trades, verify your public-channel membership and subscribe to "
-        "our private crypto signals channel. 20 USDT per calendar month. "
+        "our private crypto signals group. 20 USDT per calendar month. "
         "Negative-month subscription-fee refunds under published terms."
     )
     application.job_queue.run_repeating(s.tick, interval=45, first=10, name="deposit-verification")

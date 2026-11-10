@@ -20,7 +20,7 @@ BUTTON_ACTIONS = {
     "Agree & pay · USDT BEP20": "buy:bep20",
     "I've paid · check payment": "check",
     "Payment support": "help",
-    "Enter private signals channel": "access",
+    "Enter private signals group": "access",
     "Request a refund": "refund",
     "Cancel": "cancel-support",
     "Home": "home",
@@ -64,7 +64,7 @@ def welcome():
     return card(
         "A clearer plan. A more disciplined trade.",
         "Welcome to <b>Batna Trades</b>.\n"
-        "Your monthly membership unlocks our private crypto trading signals channel.\n\n"
+        "Your monthly membership unlocks our private crypto trading signals group.\n\n"
         "<b>ONE MONTH</b>  /  <b>20 USDT</b>\n"
         "Bybit UID transfer or USDT on BNB Smart Chain (BEP20).\n\n"
         "<b>Our subscription-fee refund promise</b>\n"
@@ -92,7 +92,7 @@ def plan(policy):
     return card(
         "One membership. One focused community.",
         "<b>20 USDT · one calendar month</b>\n"
-        "Private signals channel access. Manual renewal; no automatic charges.\n\n"
+        "Private signals group access. Manual renewal; no automatic charges.\n\n"
         "<b>Refund policy</b>\n" + escape(policy) + "\n\n"
         "<b>Important payment detail</b>\n"
         "Your invoice adds a unique reference fraction of less than 0.01 USDT. "
@@ -153,7 +153,7 @@ def status(member):
 def status_buttons(active):
     rows = []
     if active:
-        rows.append(["Enter private signals channel"])
+        rows.append(["Enter private signals group"])
     rows.extend([
         ["Renew / subscribe"],
         ["Request a refund"],
@@ -176,7 +176,7 @@ PRIVACY = (
 HELP = (
     "<b>Getting started</b>\n"
     "Join the public channel → verify membership → choose a payment method → "
-    "send the exact invoice amount → enter the private channel.\n\n"
+    "send the exact invoice amount → enter the private group.\n\n"
     "<b>Payment not found?</b>\n"
     "Wait for Bybit to credit the deposit, then check your invoice again. "
     "Do not pay twice. Late, short or wrong-network payments need administrator review.\n\n"

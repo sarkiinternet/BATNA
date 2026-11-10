@@ -30,11 +30,12 @@ key separately, with access restricted to the operator.
 1. Add the bot to **@BatnaTrades** as an administrator.
 2. From the public channel **creator's account**, start the bot and send `/setup`.
    Ownership is verified with Telegram; the first visitor cannot claim ownership.
-3. Add the bot as an administrator of the private signals channel with **Invite
-   Users** and **Ban/Restrict Members** enabled. Adding it from the channel
-   creator's account binds it automatically. Alternatively forward a channel post
-   to the bot or send `/setvip -100CHANNEL_ID`. An invite URL alone cannot be
-   converted to a private channel ID by the Bot API.
+3. Add the bot as an administrator of the private signals group with **Invite
+   Users** and **Ban/Restrict Members** enabled. The bot can connect when added
+   by the public-channel creator, when the creator forwards a group post to the
+   bot, or with `/setvip CHAT_ID`. The group must be private and Telegram must
+   report it as a supergroup; upgrade a basic group in Telegram before connecting
+   it so paid access can be managed.
 4. Revoke all previous private invite links, including the shared setup link.
    Audit legacy members. The bot can control its paid members and join requests;
    it cannot prevent direct admission by another administrator or retroactively
@@ -45,7 +46,7 @@ key separately, with access restricted to the operator.
    snapshot with each invoice; later changes do not rewrite accepted terms.
 6. Review `/setup` and run `/open` to enable both payment methods.
 
-Checkout starts paused and stays paused if channel permissions, the read-only
+Checkout starts paused and stays paused if group permissions, the read-only
 Bybit receiving account, deposit address or refund terms are missing.
 
 ## Pricing and payments
@@ -89,7 +90,7 @@ The membership month starts on confirmation, or at the previous paid period's
 end for renewals. It ends at the same UTC time one calendar month later,
 clamping to the last valid day for shorter months. No automatic billing.
 
-VIP links expire after 15 minutes and require a join request. Approval checks
+Private-group links expire after 15 minutes and require a join request. Approval checks
 the requesting Telegram identity's paid status and public-channel membership.
 Expired members are banned within approximately five minutes and unbanned on
 their next valid access request. Renewal reminders are sent in the final three
