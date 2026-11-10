@@ -2,6 +2,7 @@
 
 from html import escape
 
+import psycopg
 from telegram.constants import ChatType
 from telegram.error import TelegramError
 
@@ -13,11 +14,14 @@ GUIDE = (
     "<code>/setup</code> — connection and readiness checks\n"
     "<code>/setvip CHAT_ID</code> — connect the private signals group\n"
     "You can also forward a group post from the private group to this bot.\n\n"
+    "<code>/setuid BYBIT_UID</code> — set the receiving UID\n"
+    "<code>/setbep20 ADDRESS</code> — set the USDT BEP20 address\n"
     "<code>/policy your refund eligibility rules</code> — publish terms\n"
     "<code>/open</code> — enable checkout after reviewing the checklist\n"
     "<code>/pause</code> — stop new invoices (existing ones are still verified)\n"
     "<code>/stats</code> — real membership counts\n\n"
     "<code>/refunds</code> — review claims\n"
+    "<code>/paid INVOICE TXID</code> — confirm a payment you verified in Bybit\n"
     "<code>/approve INVOICE</code> — approve a claim, without moving money\n"
     "<code>/reject INVOICE reason</code> — reject with an explanation\n"
     "<code>/refunded INVOICE transaction_reference</code> — record a manual payout\n"
@@ -58,12 +62,10 @@ async def admin(update, context):
                 lines.append("Telegram chat permissions: ready")
             except (ValueError, TelegramError):
                 lines.append("Telegram chat permissions: incomplete — see setup steps below")
-            for method, label in (("uid", "Bybit UID"), ("bep20", "USDT BEP20")):
-                try:
-                    await s.bybit.destination(method)
-                    lines.append(label + ": receiving account verified; read-only key")
-                except BybitError as error:
-                    lines.append(label + ": " + escape(str(error)))
+            lines.append("Bybit UID: " + ("set" if s.store.get("payment_uid") else "not set"))
+            lines.append("USDT BEP20 address: " + (
+                "set" if s.store.get("payment_bep20") else "not set"
+            ))
             lines.append("Refund policy: " + ("published" if s.store.get("refund_policy") else "not set"))
             lines.append("Checkout: " + ("open" if s.store.get("checkout_open") else "paused"))
             text = "<b>Connection checklist</b>\n" + "\n".join(lines) + "\n\n" + GUIDE
@@ -72,6 +74,19 @@ async def admin(update, context):
                 raise ValueError("Usage: /setvip CHAT_ID")
             name = await s.bind_vip(context.bot, uid, int(args[0]))
             text = f"Private signals group connected: <b>{escape(name)}</b>.\n\nCheckout is paused. Run /setup."
+        elif command in ("setuid", "setbep20"):
+            if len(args) != 1:
+                raise ValueError(
+                    "Usage: /setuid BYBIT_UID" if command == "setuid"
+                    else "Usage: /setbep20 BEP20_ADDRESS"
+                )
+            method = "uid" if command == "setuid" else "bep20"
+            s.set_payment_destination(method, args[0])
+            text = (
+                "Receiving Bybit UID saved. Checkout is paused; run /open when ready."
+                if method == "uid" else
+                "USDT BEP20 address saved. Checkout is paused; run /open when ready."
+            )
         elif command == "policy":
             policy = update.message.text.partition(" ")[2].strip()
             if len(policy) < 80 or len(policy) > 1800:
@@ -84,14 +99,10 @@ async def admin(update, context):
             await s.check_permissions(context.bot)
             if not s.store.get("refund_policy"):
                 raise ValueError("Publish your refund rules first with /policy.")
-            await s.bybit.destination("uid")
-            await s.bybit.destination("bep20")
+            if not s.store.get("payment_uid") or not s.store.get("payment_bep20"):
+                raise ValueError("Set both receiving details with /setuid and /setbep20 first.")
             s.store.set("checkout_open", True)
-            text = (
-                "Checkout is open for both USDT methods. Your /open action confirms "
-                "you reviewed the /setup checklist, revoked legacy invite links, "
-                "and understand Telegram's payment-policy risk."
-            )
+            text = "Checkout is open for both USDT methods."
         elif command == "pause":
             s.store.set("checkout_open", False)
             text = "New checkout is paused. Existing invoices, paid access and refunds continue to work."
@@ -136,6 +147,23 @@ async def admin(update, context):
                             "Ask the member to resend it; the claim text is still stored."
                         )
                 return
+        elif command == "paid":
+            if len(args) != 2:
+                raise ValueError("Usage: /paid INVOICE TXID")
+            oid, txid = args
+            if len(txid) < 8 or len(txid) > 200:
+                raise ValueError("Provide the transaction ID you verified in Bybit.")
+            order = s.store.order(oid)
+            if not order:
+                raise ValueError("Invoice not found.")
+            async with s.lock:
+                try:
+                    changed = s.store.confirm_manual_payment(oid, txid)
+                except psycopg.errors.UniqueViolation:
+                    raise ValueError("This transaction was already recorded.") from None
+            if not changed:
+                raise ValueError("This invoice is no longer pending or this transaction was already used.")
+            text = "Payment recorded as verified by you in Bybit. Membership will be activated."
         elif command in ("approve", "reject", "refunded"):
             if not args:
                 raise ValueError(f"Usage: /{command} INVOICE" + (

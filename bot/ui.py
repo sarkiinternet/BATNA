@@ -97,7 +97,7 @@ def plan(policy):
         "<b>Important payment detail</b>\n"
         "Your invoice adds a unique reference fraction of less than 0.01 USDT. "
         "Send the exact displayed amount, including all six decimal places. "
-        "This links the deposit to your invoice.",
+        "Send the transaction ID or a payment screenshot here after paying.",
     )
 
 
@@ -124,9 +124,9 @@ def invoice(order):
         + ("Use Bybit's internal transfer to this UID, in USDT."
            if uid else "Send USDT on <b>BNB Smart Chain / BEP20 only</b>. "
            "Other assets and networks will not activate your membership.")
-        + "\n\nWe verify the successful deposit directly with Bybit.\n\n"
-        "<i>Already sent but not credited? Do not send again. Contact payment support "
-        "with this invoice reference. Late or incorrect payments need manual review.</i>",
+        + "\n\nAfter paying, send your transaction ID or a screenshot in this chat. "
+        "We'll verify it against the Bybit account. If it takes more than 10 minutes, "
+        "choose <b>Payment support</b> and contact the admin. Do not pay twice.",
     )
 
 
@@ -168,18 +168,19 @@ PRIVACY = (
     "Follow each signal's instructions exactly as posted in the private group.\n\n"
     "<b>Privacy</b>\n"
     "The bot stores your Telegram ID, membership dates, payment references, and any "
-    "support or refund information you submit. Support and refund submissions are "
-    "shared with the service administrator for review. Send a Help & support message "
-    "to request data deletion."
+    "payment evidence, support or refund information you submit. These submissions "
+    "are shared with the service administrator for review. Send a Help & support "
+    "message to request data deletion."
 )
 
 HELP = (
     "<b>Getting started</b>\n"
     "Join the public channel → verify membership → choose a payment method → "
-    "send the exact invoice amount → enter the private group.\n\n"
+    "send the exact invoice amount and your transaction ID or screenshot → "
+    "enter the private group.\n\n"
     "<b>Payment not found?</b>\n"
-    "Wait for Bybit to credit the deposit, then check your invoice again. "
-    "Do not pay twice. Late, short or wrong-network payments need administrator review.\n\n"
+    "Payment verification can take up to 10 minutes. If it takes longer, send a "
+    "message here to contact the administrator. Do not pay twice.\n\n"
     "<b>Need a person?</b>\n"
     "Choose Help & support and send your message. Include your invoice reference if applicable.\n\n"
     "<b>Refunds</b>\n"

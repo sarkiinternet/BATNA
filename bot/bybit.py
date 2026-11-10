@@ -15,11 +15,8 @@ class BybitError(Exception):
 
 class Bybit:
     ALLOWED_PATHS = {
-        "/v5/user/query-api",
-        "/v5/asset/deposit/query-address",
         "/v5/asset/deposit/query-record",
         "/v5/asset/deposit/query-internal-record",
-        "/v5/asset/coin/query-info",
     }
 
     def __init__(self, key: str, secret: str):
@@ -67,34 +64,6 @@ class Bybit:
             code = data.get("retCode", "unknown")
             raise BybitError(f"Bybit rejected the read-only request (code {code}).")
         return data["result"]
-
-    async def destination(self, method: str):
-        info = await self.get("/v5/user/query-api")
-        if int(info.get("readOnly", 0)) != 1:
-            raise BybitError("Replace the Bybit key with a read-only API key.")
-        if method == "uid":
-            uid = str(info.get("userID", ""))
-            if not uid or uid == "0":
-                raise BybitError("The receiving Bybit UID could not be verified.")
-            return uid
-        coin = await self.get("/v5/asset/coin/query-info", coin="USDT")
-        chains = [c for row in coin.get("rows", []) for c in row.get("chains", [])]
-        chain = next((c for c in chains if c.get("chain") == "BSC"), None)
-        if not chain or str(chain.get("chainDeposit")) != "1":
-            raise BybitError("Bybit USDT deposits on BSC/BEP20 are unavailable.")
-        # Verify minimum deposit before presenting an invoice.
-        if Decimal(str(chain.get("depositMin", "0"))) > Decimal("20"):
-            raise BybitError("The Bybit minimum BEP20 deposit exceeds this subscription.")
-        result = await self.get(
-            "/v5/asset/deposit/query-address", coin="USDT", chainType="BSC",
-        )
-        for item in result.get("chains", []):
-            address = item.get("addressDeposit", "")
-            if item.get("chain") == "BSC" and address.startswith("0x") and len(address) == 42:
-                if item.get("tagDeposit"):
-                    raise BybitError("A deposit tag is required; contact the administrator.")
-                return address
-        raise BybitError("No verified Bybit USDT BEP20 deposit address is available.")
 
     async def deposits(self, order):
         internal = order["method"] == "uid"

@@ -36,42 +36,47 @@ key separately, with access restricted to the operator.
    bot, or with `/setvip CHAT_ID`. The group must be private and Telegram must
    report it as a supergroup; upgrade a basic group in Telegram before connecting
    it so paid access can be managed.
-4. Revoke all previous private invite links, including the shared setup link.
+4. Set your receiving details with `/setuid BYBIT_UID` and `/setbep20 ADDRESS`.
+   These values are entered by you and shown to members on their invoice.
+5. Revoke all previous private invite links, including the shared setup link.
    Audit legacy members. The bot can control its paid members and join requests;
    it cannot prevent direct admission by another administrator or retroactively
    discover every existing member.
-5. Publish a policy with `/policy your complete rules`. Define "negative month",
+6. Publish a policy with `/policy your complete rules`. Define "negative month",
    which signals/trades count, whether trading fees count, evidence needed,
    any filing deadline, and the time to process approved claims. The bot stores a
    snapshot with each invoice; later changes do not rewrite accepted terms.
-6. Review `/setup` and run `/open` to enable both payment methods.
+7. Review `/setup` and run `/open` to enable both payment methods.
 
-Checkout starts paused and stays paused if group permissions, the read-only
-Bybit receiving account, deposit address or refund terms are missing.
+Checkout starts paused and requires group permissions, both manually entered
+receiving details, and published refund terms.
 
 ## Pricing and payments
 
 - Base fee: **20 USDT per calendar month**, not a guaranteed $20 exchange value.
 - Each invoice adds a random six-decimal reference fraction of **0.000001 to
   0.009999 USDT**, clearly shown before payment. The exact net amount is required.
-  This prevents a public transaction hash or a generic 20-USDT deposit from being
-  claimed by the wrong subscriber. Do not remove the reference without replacing
-  payment attribution with a comparably secure mechanism.
 - A single invoice remains reserved per member for one hour. Existing pending
   invoices are reused rather than encouraging duplicate payments.
-- The receiver UID and BEP20 address are obtained from the authenticated Bybit
-  API, never from customer input. BEP20 payments must arrive in that same account.
+- The owner enters the receiver UID and BEP20 address manually. Update them with
+  `/setuid` and `/setbep20`; changing either pauses checkout.
 - UID deposits must be successful (`status=2`); on-chain deposits must be credited
   (`status=3`), USDT/BSC, and match the destination, amount, and invoice window.
+- Members submit a transaction ID or screenshot. The read-only Bybit API checks
+  deposit records against the invoice's exact amount, destination and time;
+  submitted evidence is also forwarded to the owner.
+- If API verification is unavailable, the owner can verify the payment directly
+  in Bybit and record it using `/paid INVOICE TXID`.
 - Successful transactions and record IDs are uniquely fingerprinted and settled
   atomically with the new subscription period. A deposit cannot buy two months.
-- A background job checks every 45 seconds. The user's check button is rate
-  limited. Bybit failures never result in payment approval.
+- A background job retries payment checks every 45 seconds. Bybit failures never
+  result in automatic payment approval. Members are told to contact the admin if
+  verification takes more than 10 minutes.
 - Late, incorrectly sized or wrong-network payments are **not automatically
-  credited**. They require owner review and resolution through `/paysupport`.
-  There is deliberately no unrestricted "approve payment" command.
-- The API client has only an explicit allowlist of GET operations. It cannot
-  trade, withdraw, or transfer. It refuses non-read-only API keys.
+  credited**. They require owner review; after verifying the transaction in Bybit,
+  the owner can record it with `/paid INVOICE TXID`.
+- The API client only reads deposit records. It cannot trade, withdraw, or
+  transfer. Keep the API key read-only.
 
 ### Telegram payment-policy warning
 
@@ -79,8 +84,7 @@ Telegram's Bot Developer Terms require Stars for digital services sold inside
 bots, including signal-channel subscriptions. The owner explicitly requested
 USDT after this was explained. **This USDT checkout may result in Telegram
 restricting or terminating the bot.** It is not presented as compliant.
-`/open` acknowledges this warning. Do not enable it without reviewing current
-Telegram terms and applicable laws.
+Review current Telegram terms and applicable laws before accepting payments.
 
 Source: https://telegram.org/tos/bot-developers#6-2-digital-goods-and-services
 

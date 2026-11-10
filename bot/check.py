@@ -37,12 +37,6 @@ async def check():
     except TelegramError:
         print("Telegram: unavailable or invalid token (details suppressed)")
     bybit = Bybit(config.bybit_key, config.bybit_secret)
-    for method, name in (("uid", "UID receiving account"), ("bep20", "BEP20 deposit address")):
-        try:
-            await bybit.destination(method)
-            print("Bybit " + name + ": verified; key is read-only")
-        except BybitError as error:
-            print("Bybit " + name + ": " + str(error))
     # Check read permissions without printing any financial records.
     for endpoint, name in (
         ("query-internal-record", "internal deposit records"),

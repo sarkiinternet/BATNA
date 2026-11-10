@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from datetime import timedelta
 
 import psycopg
@@ -84,7 +85,26 @@ class Service:
         policy = self.store.get("refund_policy")
         if not policy:
             raise ValueError("The administrator is finalizing the refund policy.")
+        if not self.store.get("payment_uid") or not self.store.get("payment_bep20"):
+            raise ValueError("The administrator is setting up payment details.")
         return policy
+
+    def payment_destination(self, method):
+        key = "payment_uid" if method == "uid" else "payment_bep20"
+        destination = self.store.get(key)
+        if not destination:
+            raise ValueError("The administrator is setting up payment details.")
+        return destination
+
+    def set_payment_destination(self, method, value):
+        value = value.strip()
+        if method == "uid" and not re.fullmatch(r"\d{4,20}", value):
+            raise ValueError("Enter a valid numeric Bybit UID.")
+        if method == "bep20" and not re.fullmatch(r"0x[a-fA-F0-9]{40}", value):
+            raise ValueError("Enter a valid 0x-prefixed BEP20 address.")
+        key = "payment_uid" if method == "uid" else "payment_bep20"
+        self.store.set(key, value)
+        self.store.set("checkout_open", False)
 
     async def bind_vip(self, bot, uid, chat_id):
         if not await self.is_owner(bot, uid):
@@ -138,9 +158,13 @@ class Service:
                 return True
             if current["state"] != "pending":
                 return False
-            if current["expires_at"] <= now():
+            if current["expires_at"] <= now() or not current.get("payment_evidence"):
                 return False
             async for receipt in self.bybit.deposits(current):
+                if (current["payment_evidence_type"] == "txid"
+                        and receipt.get("txID", "").lower()
+                        != current["payment_evidence"].lower()):
+                    continue
                 try:
                     return self.store.settle(current["id"], receipt)
                 except psycopg.errors.UniqueViolation:

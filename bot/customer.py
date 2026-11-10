@@ -2,6 +2,7 @@
 
 from html import escape
 import time
+import re
 
 from telegram import MessageOriginChannel, MessageOriginChat
 from telegram.constants import ChatMemberStatus, ChatType
@@ -71,8 +72,7 @@ async def handle_action(update, context, action):
                 raise ValueError("Join @BatnaTrades before subscribing.")
             order = s.store.pending_for(uid)
             if order is None:
-                # The API, not a pasted wallet address, determines the recipient.
-                destination = await s.bybit.destination(method)
+                destination = s.payment_destination(method)
                 order = s.store.create_order(uid, method, destination, policy)
             await show(update, context, ui.invoice(order), ui.invoice_buttons(order["id"]))
         elif action.startswith("check:"):
@@ -83,6 +83,14 @@ async def handle_action(update, context, action):
             order = s.store.order(action.split(":")[1], uid)
             if not order:
                 raise ValueError("This invoice does not belong to your account.")
+            if not order.get("payment_evidence"):
+                await show(update, context, ui.card(
+                    "Send your payment details",
+                    "After paying, send the transaction ID or a screenshot here. "
+                    "If verification takes more than 10 minutes, contact the admin "
+                    "through Help & support. Do not pay twice.",
+                ), ui.invoice_buttons(order["id"]))
+                return
             if order["state"] == "paid" or await s.verify(order):
                 await membership(update, context)
             elif order["expires_at"] <= now():
@@ -94,12 +102,10 @@ async def handle_action(update, context, action):
                 ), ui.back())
             else:
                 await show(update, context, ui.card(
-                    "Waiting for a confirmed deposit",
-                    f"Invoice <code>{order['id']}</code> is not yet matched to a successful "
-                    "Bybit deposit. It may still be processing.\n\n"
-                    f"Exact net amount: <b>{order['amount']:.6f} USDT</b>\n"
-                    f"Deadline: {order['expires_at']:%d %b %Y, %H:%M} UTC\n\n"
-                    "If you've already sent it, do not pay again.",
+                    "Payment verification in progress",
+                    f"Invoice <code>{order['id']}</code> is being checked against Bybit.\n\n"
+                    "If it takes more than 10 minutes, choose Help & support to contact "
+                    "the admin. Do not pay again.",
                 ), ui.invoice_buttons(order["id"]))
         elif action == "status":
             await membership(update, context)
@@ -154,7 +160,11 @@ async def handle_action(update, context, action):
     except BybitError:
         await show(
             update, context,
-            ui.card("Payments temporarily unavailable", "Please try again later."),
+            ui.card(
+                "Payment verification is taking longer",
+                "If it is not confirmed within 10 minutes, choose Help & support "
+                "to contact the admin. Do not pay again.",
+            ),
             ui.back(),
         )
     except ValueError as error:
@@ -302,6 +312,61 @@ async def incoming(update, context):
             await message.reply_text("Please send your support message as text.")
             return
         await submit_support(update, context, text)
+        return
+    order = s.store.pending_for(update.effective_user.id)
+    if order:
+        evidence_type = None
+        evidence = ""
+        if message.photo:
+            evidence_type = "photo"
+            evidence = message.photo[-1].file_id
+        elif message.document:
+            if message.document.file_size and message.document.file_size > 10_000_000:
+                await message.reply_text("Please send a payment screenshot or document under 10 MB.")
+                return
+            evidence_type = "document"
+            evidence = message.document.file_id
+        else:
+            candidate = (message.text or "").strip()
+            if re.fullmatch(r"[A-Za-z0-9_-]{8,200}", candidate):
+                evidence_type, evidence = "txid", candidate
+        if not evidence_type:
+            await message.reply_text(
+                "Send your Bybit transaction ID or payment screenshot for the active invoice."
+            )
+            return
+        if not s.store.submit_payment(
+            update.effective_user.id, order["id"], evidence_type, evidence,
+        ):
+            await message.reply_text("This invoice has expired. Choose Help & support for assistance.")
+            return
+        await s.notify_owner(
+            context.bot,
+            "<b>Payment evidence received</b>\n"
+            f"Invoice: <code>{escape(order['id'])}</code>\n"
+            f"Member: <code>{update.effective_user.id}</code>\n"
+            f"Method: {escape(order['method'])} · {order['amount']:.6f} USDT\n"
+            + (f"Transaction ID: <code>{escape(evidence)}</code>" if evidence_type == "txid"
+               else "Evidence attachment follows."),
+        )
+        try:
+            owner_id = await s.owner(context.bot)
+            await context.bot.copy_message(
+                owner_id, message.chat_id, message.message_id,
+            )
+        except (TelegramError, ValueError):
+            pass
+        verified = False
+        try:
+            verified = await s.verify(s.store.order(order["id"]))
+        except BybitError:
+            pass
+        await message.reply_text(
+            "Payment verified. Membership will activate shortly."
+            if verified else
+            "Payment details sent for verification. If it takes more than 10 minutes, "
+            "choose Help & support to contact the admin. Do not pay again."
+        )
         return
     oid = context.user_data.get("refund_invoice")
     if not oid:

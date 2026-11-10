@@ -18,12 +18,11 @@ relocate the running workspace workflow.
 IPs are restricted. The exact classification of this environment was not independently
 established; do not claim an account or credential fault from HTTP 403 alone.
 
-**How to apply:** Keep checkout paused until the user has selected a permitted
-Replit publishing geography (if eligible) or another permitted hosting environment
-successfully verifies receiving-account metadata, read-only permissions, the
-USDT/BSC address and both deposit-history endpoints. Do not use proxies or
-regional API domains to bypass geographic restrictions, and do not approve
-payments from screenshots as a substitute.
+**How to apply:** Receiving UID and BEP20 address are entered manually by the
+owner; Bybit API calls are only for deposit-record verification. If that API is
+unavailable, the owner can verify a submitted payment in Bybit and record it
+through the owner-only payment confirmation. Do not use proxies or regional API
+domains to bypass geographic restrictions.
 
 References:
 - https://bybit-exchange.github.io/docs/v5/guide

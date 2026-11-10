@@ -65,7 +65,7 @@ async def post_init(application):
     )
     application.job_queue.run_repeating(s.tick, interval=45, first=10, name="deposit-verification")
     application.job_queue.run_repeating(s.maintain, interval=300, first=30, name="subscription-expiry")
-    log.info("Telegram connected: @%s. Checkout is closed until payment verification is ready.",
+    log.info("Telegram connected: @%s. Checkout is controlled by the owner.",
              application.bot.username)
 
 
@@ -86,7 +86,8 @@ def build(config):
     application.add_handler(CommandHandler("start", customer.start))
     application.add_handler(CommandHandler(
         ["admin", "setup", "setvip", "policy", "open", "pause", "stats",
-         "refunds", "approve", "reject", "refunded", "reply", "erase"], admin.admin,
+         "setuid", "setbep20", "paid", "refunds", "approve", "reject", "refunded",
+         "reply", "erase"], admin.admin,
     ))
     application.add_handler(ChatJoinRequestHandler(customer.join_request))
     application.add_handler(ChatMemberHandler(customer.bot_membership, ChatMemberHandler.MY_CHAT_MEMBER))

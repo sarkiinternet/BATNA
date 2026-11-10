@@ -52,9 +52,14 @@ class Store:
                     policy_enc TEXT NOT NULL,
                     tx_key TEXT UNIQUE, record_key TEXT UNIQUE,
                     receipt_enc TEXT, period_start TIMESTAMPTZ, period_end TIMESTAMPTZ,
+                    payment_evidence_enc TEXT, payment_evidence_type TEXT,
+                    payment_submitted_at TIMESTAMPTZ,
                     refund_state TEXT NOT NULL DEFAULT 'none', refund_enc TEXT,
                     refund_reference_enc TEXT
                 );
+                ALTER TABLE batna.orders ADD COLUMN IF NOT EXISTS payment_evidence_enc TEXT;
+                ALTER TABLE batna.orders ADD COLUMN IF NOT EXISTS payment_evidence_type TEXT;
+                ALTER TABLE batna.orders ADD COLUMN IF NOT EXISTS payment_submitted_at TIMESTAMPTZ;
                 CREATE INDEX IF NOT EXISTS batna_orders_member
                     ON batna.orders(member_key, created_at DESC);
                 CREATE UNIQUE INDEX IF NOT EXISTS batna_one_pending
@@ -99,8 +104,25 @@ class Store:
             row = db.execute("SELECT * FROM batna.orders WHERE id=%s", (order_id,)).fetchone()
         if row and (uid is None or row["member_key"] == self.vault.index(f"user:{uid}")):
             row["destination"] = self.vault.open(row["destination_enc"])
+            row["payment_evidence"] = (
+                self.vault.open(row["payment_evidence_enc"])
+                if row["payment_evidence_enc"] else None
+            )
             return row
         return None
+
+    def submit_payment(self, uid, order_id, evidence_type, evidence):
+        if evidence_type not in ("txid", "photo", "document"):
+            return False
+        with self.connect() as db:
+            row = db.execute(
+                "UPDATE batna.orders SET payment_evidence_enc=%s,payment_evidence_type=%s,"
+                "payment_submitted_at=now() WHERE id=%s AND member_key=%s "
+                "AND state='pending' AND expires_at>now() RETURNING id",
+                (self.vault.seal(evidence), evidence_type, order_id,
+                 self.vault.index(f"user:{uid}")),
+            ).fetchone()
+        return bool(row)
 
     def pending_for(self, uid):
         key = self.vault.index(f"user:{uid}")
@@ -173,9 +195,23 @@ class Store:
         with self.connect() as db:
             rows = db.execute(
                 "SELECT id FROM batna.orders WHERE state='pending' AND expires_at>now() "
+                "AND payment_evidence_enc IS NOT NULL "
                 "ORDER BY created_at LIMIT 100"
             ).fetchall()
         return [self.order(row["id"]) for row in rows]
+
+    def confirm_manual_payment(self, order_id, txid):
+        order = self.order(order_id)
+        if not order or order["state"] != "pending":
+            return False
+        receipt = {
+            "id": "owner-confirmed:" + txid.lower(),
+            "txID": txid,
+            "coin": "USDT",
+            "amount": str(order["amount"]),
+            "verification": "owner-confirmed-in-bybit",
+        }
+        return self.settle(order_id, receipt)
 
     def pending_deliveries(self):
         with self.connect() as db:
