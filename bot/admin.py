@@ -45,10 +45,7 @@ async def admin(update, context):
     s = context.application.bot_data["service"]
     uid = update.effective_user.id
     if not await s.is_owner(context.bot, uid):
-        await update.message.reply_text(
-            "Owner access only. Add the bot as an administrator of @BatnaTrades "
-            "first, then run this command from the channel creator's Telegram account."
-        )
+        await update.message.reply_text("Owner access only.")
         return
     command = update.message.text.split()[0].split("@")[0][1:]
     args = context.args
