@@ -164,7 +164,7 @@ def status_buttons(active):
 
 PRIVACY = (
     "<b>Trading instructions</b>\n"
-    "Set each stop-loss to limit the maximum risk to 10% of your trading balance. "
+    "Follow the risk management and signal instructions posted in the private group."
     "Follow each signal's instructions exactly as posted in the private group.\n\n"
     "<b>Privacy</b>\n"
     "The bot stores your Telegram ID, membership dates, payment references, and any "
