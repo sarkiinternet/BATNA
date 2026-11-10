@@ -113,7 +113,7 @@ def build(config):
     application.add_handler(ChatJoinRequestHandler(customer.join_request))
     application.add_handler(ChatMemberHandler(customer.bot_membership, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & \~filters.COMMAND, customer.route,
+        filters.ChatType.PRIVATE & filters.TEXT, customer.route,
     ))
     application.add_error_handler(error_handler)
     return application
