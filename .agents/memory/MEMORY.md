@@ -1,1 +1,0 @@
-- [Bybit hosting restriction](bybit-hosting.md) — both official Bybit mainnet endpoints return HTTP 403 here; keep payments closed until verified from an allowed host.
