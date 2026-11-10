@@ -6,15 +6,25 @@ description: Hosting-dependent obstacle to enabling the Telegram bot's payment v
 Bybit's public mainnet API returned HTTP 403 from this environment, on both
 `api.bybit.com` and `api.bytick.com`. This happened even for the unauthenticated
 server-time endpoint, so a replacement API key is not a demonstrated solution.
+The project owner attributes the rejection to the Replit workflow's US host; this
+is consistent with Bybit's documented regional restrictions, though the egress
+location has not been independently resolved from inside the workflow.
+
+Replit's published-app geography is selected in the Publishing UI before the first
+publish and becomes permanent afterward. That setting is not a code-level way to
+relocate the running workspace workflow.
 
 **Why:** Bybit's official integration guide says US and mainland-China source
 IPs are restricted. The exact classification of this environment was not independently
 established; do not claim an account or credential fault from HTTP 403 alone.
 
-**How to apply:** Keep checkout paused until a permitted hosting environment
+**How to apply:** Keep checkout paused until the user has selected a permitted
+Replit publishing geography (if eligible) or another permitted hosting environment
 successfully verifies receiving-account metadata, read-only permissions, the
 USDT/BSC address and both deposit-history endpoints. Do not use proxies or
 regional API domains to bypass geographic restrictions, and do not approve
 payments from screenshots as a substitute.
 
-Reference: https://bybit-exchange.github.io/docs/v5/guide
+References:
+- https://bybit-exchange.github.io/docs/v5/guide
+- https://docs.replit.com/features/publishing/project-geography
