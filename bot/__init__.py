@@ -1,0 +1,1 @@
+"""Batna Trades subscription bot."""
