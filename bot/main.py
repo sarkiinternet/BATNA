@@ -1,7 +1,10 @@
 """Run with: uv run python -m bot.main"""
 
 import logging
+import os
 import signal
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -20,6 +23,24 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 for logger_name in ("httpx", "httpcore", "telegram", "apscheduler"):
     logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 log = logging.getLogger("batna")
+
+
+def start_health_server():
+    """Tiny HTTP server so Render free web services stay alive."""
+    port = int(os.environ.get("PORT", 10000))
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, format, *args):
+            pass  # silence request logs
+
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    log.info("Health server listening on port %s", port)
 
 
 async def error_handler(update, context):
@@ -92,7 +113,7 @@ def build(config):
     application.add_handler(ChatJoinRequestHandler(customer.join_request))
     application.add_handler(ChatMemberHandler(customer.bot_membership, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & ~filters.COMMAND, customer.route,
+        filters.ChatType.PRIVATE & \~filters.COMMAND, customer.route,
     ))
     application.add_error_handler(error_handler)
     return application
@@ -100,6 +121,7 @@ def build(config):
 
 def main():
     config = Config.load()
+    start_health_server()
     # A persistent database advisory lock prevents two polling workers for this bot.
     s = Service(config)
     lease = s.store.connect()
