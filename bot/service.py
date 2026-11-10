@@ -56,7 +56,7 @@ class Service:
         if not vip:
             raise ValueError(
                 "Add the bot to the private signals channel as an administrator, "
-                "then forward a channel post here or use /setvip -100CHANNEL_ID."
+                "then forward a channel post here."
             )
         admin = await bot.get_chat_member(vip, bot.id)
         if (admin.status != ChatMember.ADMINISTRATOR
@@ -69,7 +69,7 @@ class Service:
 
     async def ready(self, bot):
         if not self.store.get("checkout_open", False):
-            raise ValueError("Membership checkout is being prepared. Please check back soon.")
+            raise ValueError("Membership checkout is currently unavailable.")
         await self.check_permissions(bot)
         policy = self.store.get("refund_policy")
         if not policy:
@@ -198,7 +198,7 @@ class Service:
                                     "Your membership has ended",
                                     "Private-channel access has expired. Thank you for being "
                                     "part of Batna Trades.\n\nRenew when you're ready, "
-                                    "or use /refund if your completed month qualifies.",
+                                "or choose Request a refund if your completed month qualifies.",
                                 ), parse_mode="HTML", reply_markup=ui.menu(),
                             )
                         except TelegramError:

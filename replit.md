@@ -38,7 +38,7 @@ _Populate as you build — short repo map plus pointers to the source-of-truth f
 - The Telegram bot is Python, as requested, and uses the existing PostgreSQL database.
 - Only the creator of the configured public channel can perform administrative operations.
 - Verification uses a read-only Bybit key; the bot never trades, withdraws or transfers funds. Approved refunds are paid manually by the owner.
-- Telegram requires Stars for in-bot digital subscriptions. The user explicitly chose Bybit UID and BEP20 USDT after being informed of restriction risk. Checkout remains paused until owner setup and explicit `/open`.
+- Telegram requires Stars for in-bot digital subscriptions. The user explicitly chose Bybit UID and BEP20 USDT after being informed of restriction risk. Checkout must remain closed until the current host can retrieve the verified Bybit receiving details and deposit records, and owner setup is complete.
 - The advertised base price is 20 USDT; the exact invoice adds a disclosed reference fraction below 0.01 USDT for safe payment attribution.
 
 ## Product
@@ -49,6 +49,9 @@ Public-channel join verification, two Bybit-verified USDT payment routes, calend
 
 - The user requested a Python bot and a stylish, beautiful Telegram experience.
 - Keep every menu and action button in Telegram's regular reply keyboard, never inline/popup buttons. Put links in message text.
+- Require public-channel membership before a new user can access bot features; label the subscription entry button "Join Now".
+- Keep customer copy concise and limited to the service's actual terms. The trading instruction is a 10% maximum account-balance risk per trade, with members following each private-channel signal exactly.
+- Clear Telegram's slash-command menu. Keep customer actions in the reply keyboard.
 - The subscription offer is $20 monthly, with a subscription-fee refund if the subscriber ends the month negative; trading losses are not reimbursed.
 - The user chose UID and BEP20 rather than Telegram Stars.
 

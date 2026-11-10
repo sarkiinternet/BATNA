@@ -10,7 +10,7 @@ BRAND = "<b>BATNA TRADES</b>\n<code>P R E M I U M   S I G N A L S</code>"
 RULE = "━━━━━━━━━━━━━━━━━━━━"
 
 BUTTON_ACTIONS = {
-    "Explore membership · 20 USDT": "plans",
+    "Join Now": "plans",
     "My membership": "status",
     "Refund promise": "promise",
     "Help & support": "help",
@@ -22,6 +22,7 @@ BUTTON_ACTIONS = {
     "Payment support": "help",
     "Enter private signals channel": "access",
     "Request a refund": "refund",
+    "Cancel": "cancel-support",
     "Home": "home",
     "Back to home": "home",
     "Back": "home",
@@ -49,7 +50,7 @@ def card(title, body):
 
 def menu():
     return keyboard([
-        ["Explore membership · 20 USDT"],
+        ["Join Now"],
         ["My membership", "Refund promise"],
         ["Help & support", "Privacy"],
     ])
@@ -69,15 +70,22 @@ def welcome():
         "<b>Our subscription-fee refund promise</b>\n"
         "If you finish your subscription month in the negative from our signals, "
         "we refund your subscription fee after reviewing your claim under the "
-        "published policy. Trading losses are not covered.\n\n"
-        '<i>Start by <a href="https://t.me/BatnaTrades">joining our public community</a>. '
-        "Trading involves risk; signals do not guarantee a profit.</i>",
+        "published policy.\n\n"
+        "Join the public community before subscribing.",
     )
 
 
-def join_keyboard(_link):
-    # Reply keyboards cannot carry URL buttons; the chat message contains a clickable link.
-    return keyboard([["I've joined — verify"], ["Back"]])
+def join_required(link):
+    return card(
+        "Join the public community",
+        "Joining <a href=\"" + escape(link, quote=True) + "\">@BatnaTrades</a> is required "
+        "before using the membership service.\n\n"
+        "After joining, tap <b>I've joined — verify</b> below.",
+    )
+
+
+def join_keyboard(_link=None):
+    return keyboard([["I've joined — verify"]])
 
 
 def plan(policy):
@@ -89,10 +97,7 @@ def plan(policy):
         "<b>Important payment detail</b>\n"
         "Your invoice adds a unique reference fraction of less than 0.01 USDT. "
         "Send the exact displayed amount, including all six decimal places. "
-        "This links the deposit to you without relying on screenshots or public hashes.\n\n"
-        "<i>Crypto prices, network fees and USDT's dollar value can vary. "
-        "Only the subscription fee is refundable, not trading losses or network fees. "
-        "Never trade money you cannot afford to lose.</i>",
+        "This links the deposit to your invoice.",
     )
 
 
@@ -119,8 +124,7 @@ def invoice(order):
         + ("Use Bybit's internal transfer to this UID, in USDT."
            if uid else "Send USDT on <b>BNB Smart Chain / BEP20 only</b>. "
            "Other assets and networks will not activate your membership.")
-        + "\n\nWe verify the successful deposit directly with Bybit. "
-        "No transaction hash, wallet connection, or account password is needed.\n\n"
+        + "\n\nWe verify the successful deposit directly with Bybit.\n\n"
         "<i>Already sent but not credited? Do not send again. Contact payment support "
         "with this invoice reference. Late or incorrect payments need manual review.</i>",
     )
@@ -159,18 +163,14 @@ def status_buttons(active):
 
 
 PRIVACY = (
-    "We store your Telegram user ID, invoice and subscription dates, payment references, "
-    "and refund/support information you submit. These are used to verify payments, "
-    "manage channel access and handle disputes. Personal fields and deposit receipts "
-    "are encrypted in the database.\n\n"
-    "Telegram processes messages and channel membership. Bybit processes payments and "
-    "supplies deposit records; the bot does not request your Bybit password, API keys, "
-    "seed phrase, or wallet connection.\n\n"
-    "Support and refund evidence is shared with the service administrator for review. "
-    "Do not submit passwords, API keys, identity documents or unrelated trade history.\n\n"
-    "Use /delete to request deletion. Active subscriptions or legally required "
-    "transaction records may need to be resolved or retained; the administrator "
-    "will explain any retention requirement."
+    "<b>Trading instructions</b>\n"
+    "Set each stop-loss to limit the maximum risk to 10% of your trading balance. "
+    "Follow each signal's instructions exactly as posted in the private group.\n\n"
+    "<b>Privacy</b>\n"
+    "The bot stores your Telegram ID, membership dates, payment references, and any "
+    "support or refund information you submit. Support and refund submissions are "
+    "shared with the service administrator for review. Send a Help & support message "
+    "to request data deletion."
 )
 
 HELP = (
@@ -181,9 +181,7 @@ HELP = (
     "Wait for Bybit to credit the deposit, then check your invoice again. "
     "Do not pay twice. Late, short or wrong-network payments need administrator review.\n\n"
     "<b>Need a person?</b>\n"
-    "Send <code>/support your message</code>. Include your invoice reference if applicable. "
-    "For payment issues, use <code>/paysupport your message</code>.\n\n"
+    "Choose Help & support and send your message. Include your invoice reference if applicable.\n\n"
     "<b>Refunds</b>\n"
-    "Use /refund after your subscription month ends. "
-    "We cannot read your trading account or determine your personal P&amp;L automatically."
+    "Choose Request a refund after your subscription month ends."
 )

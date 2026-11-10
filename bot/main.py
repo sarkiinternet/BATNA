@@ -3,7 +3,7 @@
 import logging
 import signal
 
-from telegram import BotCommand, Update
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, Conflict, TelegramError
 from telegram.ext import (
@@ -37,7 +37,7 @@ async def error_handler(update, context):
                 ui.card(
                     "Please try again",
                     "This action could not be completed. No unverified payment has been "
-                    "credited. Use /status to check your membership or /paysupport "
+                    "credited. Choose My membership to check your access or Help & support "
                     "if you already sent funds. Do not pay again.",
                 ), parse_mode=ParseMode.HTML, reply_markup=ui.back(),
             )
@@ -54,29 +54,18 @@ async def post_init(application):
             "An existing webhook is configured. Disconnect that service explicitly "
             "before starting this polling bot."
         )
-    await application.bot.set_my_commands([
-        BotCommand("start", "Welcome & monthly membership"),
-        BotCommand("status", "Your membership & private channel access"),
-        BotCommand("refund", "Review a completed month"),
-        BotCommand("support", "Contact the administrator"),
-        BotCommand("paysupport", "Payment or refund support"),
-        BotCommand("privacy", "How your data is handled"),
-        BotCommand("delete", "Request data deletion"),
-        BotCommand("cancel", "Cancel a refund submission"),
-    ])
+    await application.bot.set_my_commands([])
     await application.bot.set_my_short_description(
-        "Batna Trades membership · Crypto signals · 20 USDT/month. Trading involves risk."
+        "Batna Trades membership · Crypto signals · 20 USDT/month."
     )
     await application.bot.set_my_description(
         "Join Batna Trades, verify your public-channel membership and subscribe to "
-        "our private crypto signals channel. 20 USDT per calendar month, plus an "
-        "invoice reference fraction of less than 0.01 USDT. Negative-month subscription-fee "
-        "refunds under published terms. Trading losses are not covered. "
-        "No guaranteed profits. Use /start to begin."
+        "our private crypto signals channel. 20 USDT per calendar month. "
+        "Negative-month subscription-fee refunds under published terms."
     )
     application.job_queue.run_repeating(s.tick, interval=45, first=10, name="deposit-verification")
     application.job_queue.run_repeating(s.maintain, interval=300, first=30, name="subscription-expiry")
-    log.info("Telegram connected: @%s. Checkout is closed until owner setup is complete.",
+    log.info("Telegram connected: @%s. Checkout is closed until payment verification is ready.",
              application.bot.username)
 
 
@@ -95,10 +84,6 @@ def build(config):
     )
     application.bot_data["service"] = s
     application.add_handler(CommandHandler("start", customer.start))
-    application.add_handler(CommandHandler("status", customer.membership, filters=filters.ChatType.PRIVATE))
-    application.add_handler(CommandHandler("refund", customer.refund))
-    application.add_handler(CommandHandler(["support", "paysupport"], customer.support))
-    application.add_handler(CommandHandler(["cancel", "privacy", "delete", "id"], customer.basic))
     application.add_handler(CommandHandler(
         ["admin", "setup", "setvip", "policy", "open", "pause", "stats",
          "refunds", "approve", "reject", "refunded", "reply", "erase"], admin.admin,

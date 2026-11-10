@@ -20,10 +20,24 @@ async def show(update, context, text, buttons=None):
     )
 
 
+async def require_public_membership(update, context):
+    s = context.application.bot_data["service"]
+    if await s.joined(context.bot, update.effective_user.id):
+        return True
+    await show(
+        update, context, ui.join_required(s.config.public_link),
+        ui.join_keyboard(s.config.public_link),
+    )
+    return False
+
+
 async def start(update, context):
     if update.effective_chat.type != ChatType.PRIVATE:
         return
-    context.application.bot_data["service"].store.member(update.effective_user.id)
+    s = context.application.bot_data["service"]
+    s.store.member(update.effective_user.id)
+    if not await require_public_membership(update, context):
+        return
     await show(update, context, ui.welcome(), ui.menu())
 
 
@@ -33,17 +47,18 @@ async def handle_action(update, context, action):
     s = context.application.bot_data["service"]
     uid = update.effective_user.id
     try:
+        if action != "joined" and not await require_public_membership(update, context):
+            return
         if action == "home":
             context.user_data.pop("refund_invoice", None)
+            context.user_data.pop("support_pending", None)
             await show(update, context, ui.welcome(), ui.menu())
         elif action in ("plans", "joined"):
             if not await s.joined(context.bot, uid):
-                await show(update, context, ui.card(
-                    "Your first step is the community",
-                    "Join <b>@BatnaTrades</b>, then return here and tap "
-                    "<b>I've joined — verify</b>.\n\n"
-                    "Membership is checked directly with Telegram before checkout.",
-                ), ui.join_keyboard(s.config.public_link))
+                await show(
+                    update, context, ui.join_required(s.config.public_link),
+                    ui.join_keyboard(s.config.public_link),
+                )
                 return
             policy = await s.ready(context.bot)
             await show(update, context, ui.plan(policy), ui.payment_methods())
@@ -74,8 +89,8 @@ async def handle_action(update, context, action):
                 await show(update, context, ui.card(
                     "Invoice expired",
                     "Do not send payment to this invoice. If you already paid, use "
-                    f"<code>/paysupport {order['id']} your message</code> for manual review. "
-                    "Do not send a second payment.",
+                    "Help & support and include this invoice reference for manual review: "
+                    f"<code>{order['id']}</code>. Do not send a second payment.",
                 ), ui.back())
             else:
                 await show(update, context, ui.card(
@@ -103,10 +118,7 @@ async def handle_action(update, context, action):
                 "Your subscription-fee refund promise",
                 escape(policy) if policy else
                 "If you end your subscription month in the negative from our signals, "
-                "we refund your subscription fee after reviewing your claim.\n\n"
-                "The administrator is finalizing the eligibility and evidence rules. "
-                "Checkout stays closed until those rules are published.\n\n"
-                "<b>Trading losses are not covered. No profit is guaranteed.</b>",
+                "we refund your subscription fee after reviewing your claim.",
             ), ui.back())
         elif action == "refund":
             await refund(update, context)
@@ -125,24 +137,39 @@ async def handle_action(update, context, action):
                 + escape(s.store.vault.open(order["policy_enc"]))
                 + "\n\nSend a message, screenshot or document with the relevant trade "
                 "history, net result and explanation. It will be sent to the administrator "
-                "for review. Redact account credentials and unrelated personal information.\n\n"
-                "Use /cancel to stop. The bot does not access your trading account.",
+                "for review.",
             ), ui.back())
         elif action == "privacy":
             await show(update, context, ui.card("Your data, explained", ui.PRIVACY), ui.back())
         elif action == "help":
-            await show(update, context, ui.card("We're here to help", ui.HELP), ui.back())
-    except (ValueError, BybitError) as error:
+            context.user_data["support_pending"] = True
+            await show(
+                update, context,
+                ui.card("Help & support", ui.HELP + "\n\nSend your message now."),
+                ui.keyboard([["Cancel", "Home"]]),
+            )
+        elif action == "cancel-support":
+            context.user_data.pop("support_pending", None)
+            await show(update, context, ui.welcome(), ui.menu())
+    except BybitError:
+        await show(
+            update, context,
+            ui.card("Payments temporarily unavailable", "Please try again later."),
+            ui.back(),
+        )
+    except ValueError as error:
         await show(update, context, ui.card("One more step", escape(str(error))), ui.back())
     except TelegramError:
         await show(update, context, ui.card(
             "Connection needs attention",
             "Telegram could not verify channel access. The administrator may need to "
-            "finish connecting the channels. Please try again later or use /support.",
+            "finish connecting the channels. Please try again later.",
         ), ui.back())
 
 
 async def membership(update, context):
+    if not await require_public_membership(update, context):
+        return
     s = context.application.bot_data["service"]
     uid = update.effective_user.id
     member = s.store.member(uid)
@@ -151,6 +178,8 @@ async def membership(update, context):
 
 async def refund(update, context):
     if update.effective_chat.type != ChatType.PRIVATE:
+        return
+    if not await require_public_membership(update, context):
         return
     s = context.application.bot_data["service"]
     periods = s.store.periods(update.effective_user.id)
@@ -170,8 +199,7 @@ async def refund(update, context):
     await show(update, context, ui.card(
         "Review your completed month",
         ("Choose the subscription period you want reviewed. We refund the subscription "
-         "fee for qualifying negative months under the terms you accepted. "
-         "We do not reimburse trading losses.\n\n" if len(rows) > 1 else
+         "fee for qualifying negative months under the terms you accepted.\n\n" if len(rows) > 1 else
          "You have no completed paid month available for a new claim. "
          "Claims open after the paid period ends.\n\n")
         + ("<b>Existing claims</b>\n" + summary if summary else ""),
@@ -181,11 +209,22 @@ async def refund(update, context):
 async def support(update, context):
     if update.effective_chat.type != ChatType.PRIVATE:
         return
+    if not await require_public_membership(update, context):
+        return
     s = context.application.bot_data["service"]
     text = update.message.text.partition(" ")[2].strip()
     if not text:
-        await show(update, context, ui.card("Help & payment support", ui.HELP), ui.back())
+        context.user_data["support_pending"] = True
+        await show(
+            update, context, ui.card("Help & support", ui.HELP + "\n\nSend your message now."),
+            ui.keyboard([["Cancel", "Home"]]),
+        )
         return
+    await submit_support(update, context, text)
+
+
+async def submit_support(update, context, text):
+    s = context.application.bot_data["service"]
     if len(text) > 2500:
         await update.message.reply_text("Please keep your support message under 2,500 characters.")
         return
@@ -197,10 +236,11 @@ async def support(update, context):
     s.store.member(uid)
     delivered = await s.notify_owner(
         context.bot, f"<b>Support request</b>\nMember: <code>{uid}</code>\n\n"
-        f"{escape(text)}\n\nReply with <code>/reply {uid} your message</code>",
+        f"{escape(text)}",
     )
     if delivered:
         context.user_data["support_at"] = time.monotonic()
+        context.user_data.pop("support_pending", None)
     await update.message.reply_text(
         "Your message was delivered to the administrator."
         if delivered else "The administrator cannot receive messages yet. "
@@ -212,13 +252,15 @@ async def route(update, context):
     """Route normal reply-keyboard text; pass non-button text to refund submissions."""
     if update.effective_chat.type != ChatType.PRIVATE:
         return
+    if not await require_public_membership(update, context):
+        return
     text = update.effective_message.text or ""
     action = context.user_data.get("button_actions", ui.BUTTON_ACTIONS).get(text)
     if action == "check":
         order = context.application.bot_data["service"].store.pending_for(update.effective_user.id)
         if not order:
             await update.effective_message.reply_text(
-                "No active invoice to check. Use /start to view your membership."
+                "No active invoice to check. Choose Join Now to view membership."
             )
             return
         action = "check:" + order["id"]
@@ -239,15 +281,24 @@ async def incoming(update, context):
                 name = await s.bind_vip(
                     context.bot, update.effective_user.id, message.forward_origin.chat.id,
                 )
-                await message.reply_text(f"Private channel connected: {name}. Run /setup next.")
+                await message.reply_text(
+                    f"Private channel connected: {name}. Checkout remains paused until setup is complete."
+                )
             except (ValueError, TelegramError) as error:
                 await message.reply_text(str(error) if isinstance(error, ValueError)
                                          else "Check the bot's administrator permissions.")
             return
+    if context.user_data.get("support_pending"):
+        text = (message.text or message.caption or "").strip()
+        if not text:
+            await message.reply_text("Please send your support message as text.")
+            return
+        await submit_support(update, context, text)
+        return
     oid = context.user_data.get("refund_invoice")
     if not oid:
         await message.reply_text(
-            "Choose an option from the keyboard below, or use /start, /support or /refund."
+            "Choose an option from the keyboard below."
         )
         return
     evidence = (message.text or message.caption or "").strip()
@@ -282,7 +333,7 @@ async def incoming(update, context):
         pass  # The encrypted claim is durable and visible in /refunds.
     await message.reply_text(
         "Refund request recorded. The administrator will review it under your invoice's "
-        "published policy. This is a review request, not confirmation of a payout."
+        "published policy."
     )
 
 
@@ -314,7 +365,7 @@ async def bot_membership(update, context):
                 name = await s.bind_vip(context.bot, change.from_user.id, change.chat.id)
                 await s.notify_owner(
                     context.bot, f"Private signals channel connected: <b>{escape(name)}</b>. "
-                    "Run /setup to finish. Checkout remains paused.",
+                    "Checkout remains paused until the remaining setup is complete.",
                 )
         except (TelegramError, ValueError):
             pass
