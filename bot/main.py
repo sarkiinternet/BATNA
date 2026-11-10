@@ -7,7 +7,7 @@ from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, Conflict, TelegramError
 from telegram.ext import (
-    Application, CallbackQueryHandler, ChatJoinRequestHandler, ChatMemberHandler,
+    Application, ChatJoinRequestHandler, ChatMemberHandler,
     CommandHandler, MessageHandler, filters,
 )
 
@@ -103,11 +103,10 @@ def build(config):
         ["admin", "setup", "setvip", "policy", "open", "pause", "stats",
          "refunds", "approve", "reject", "refunded", "reply", "erase"], admin.admin,
     ))
-    application.add_handler(CallbackQueryHandler(customer.callback))
     application.add_handler(ChatJoinRequestHandler(customer.join_request))
     application.add_handler(ChatMemberHandler(customer.bot_membership, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & ~filters.COMMAND, customer.incoming,
+        filters.ChatType.PRIVATE & ~filters.COMMAND, customer.route,
     ))
     application.add_error_handler(error_handler)
     return application
@@ -128,7 +127,7 @@ def main():
     try:
         application = build(config)
         application.run_polling(
-            allowed_updates=["message", "callback_query", "chat_join_request", "my_chat_member"],
+            allowed_updates=["message", "chat_join_request", "my_chat_member"],
             drop_pending_updates=False,
             stop_signals=(signal.SIGINT, signal.SIGTERM),
         )

@@ -3,7 +3,6 @@
 from html import escape
 import time
 
-from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Keyboard
 from telegram import MessageOriginChannel
 from telegram.constants import ChatMemberStatus, ChatType
 from telegram.error import TelegramError
@@ -14,14 +13,11 @@ from .store import now
 
 
 async def show(update, context, text, buttons=None):
-    if update.callback_query:
-        await update.callback_query.edit_message_text(
-            text, parse_mode="HTML", reply_markup=buttons, disable_web_page_preview=True,
-        )
-    else:
-        await update.effective_message.reply_text(
-            text, parse_mode="HTML", reply_markup=buttons, disable_web_page_preview=True,
-        )
+    markup, actions = buttons or ui.menu()
+    context.user_data["button_actions"] = actions
+    await update.effective_message.reply_text(
+        text, parse_mode="HTML", reply_markup=markup, disable_web_page_preview=True,
+    )
 
 
 async def start(update, context):
@@ -31,14 +27,11 @@ async def start(update, context):
     await show(update, context, ui.welcome(), ui.menu())
 
 
-async def callback(update, context):
-    query = update.callback_query
-    await query.answer()
+async def handle_action(update, context, action):
     if update.effective_chat.type != ChatType.PRIVATE:
         return
     s = context.application.bot_data["service"]
     uid = update.effective_user.id
-    action = query.data
     try:
         if action == "home":
             context.user_data.pop("refund_invoice", None)
@@ -101,11 +94,9 @@ async def callback(update, context):
                 "Your private channel is ready",
                 "Request to join using the button below. Only an active paid member "
                 "who is also in @BatnaTrades will be approved.\n\n"
-                "This link expires in 15 minutes. Do not share it.",
-            ), Keyboard([
-                [Button("Request entry · private signals", url=link)],
-                [Button("My membership", callback_data="status")],
-            ]))
+                f'<a href="{escape(link, quote=True)}">Request entry · private signals</a>\n\n'
+                "This link expires in 15 minutes. Do not share it."
+            ), ui.keyboard([["My membership"], ["Home"]]))
         elif action == "promise":
             policy = s.store.get("refund_policy")
             await show(update, context, ui.card(
@@ -164,16 +155,18 @@ async def refund(update, context):
     s = context.application.bot_data["service"]
     periods = s.store.periods(update.effective_user.id)
     completed = [p for p in periods if p["period_end"] <= now()]
-    rows = [
-        [Button(f"{p['period_start']:%d %b} – {p['period_end']:%d %b %Y}",
-                callback_data=f"claim:{p['id']}")]
-        for p in completed if p["refund_state"] == "none"
-    ]
+    rows = []
+    actions = {}
+    for period in completed:
+        if period["refund_state"] == "none":
+            label = f"Review · {period['period_start']:%d %b}–{period['period_end']:%d %b}"
+            rows.append([label])
+            actions[label] = f"claim:{period['id']}"
     summary = "\n".join(
         f"<code>{p['id']}</code> · {escape(p['refund_state'])}" for p in completed
         if p["refund_state"] != "none"
     )
-    rows.append([Button("Home", callback_data="home")])
+    rows.append(["Home"])
     await show(update, context, ui.card(
         "Review your completed month",
         ("Choose the subscription period you want reviewed. We refund the subscription "
@@ -182,7 +175,7 @@ async def refund(update, context):
          "You have no completed paid month available for a new claim. "
          "Claims open after the paid period ends.\n\n")
         + ("<b>Existing claims</b>\n" + summary if summary else ""),
-    ), Keyboard(rows))
+    ), ui.keyboard(rows, actions))
 
 
 async def support(update, context):
@@ -215,6 +208,26 @@ async def support(update, context):
     )
 
 
+async def route(update, context):
+    """Route normal reply-keyboard text; pass non-button text to refund submissions."""
+    if update.effective_chat.type != ChatType.PRIVATE:
+        return
+    text = update.effective_message.text or ""
+    action = context.user_data.get("button_actions", ui.BUTTON_ACTIONS).get(text)
+    if action == "check":
+        order = context.application.bot_data["service"].store.pending_for(update.effective_user.id)
+        if not order:
+            await update.effective_message.reply_text(
+                "No active invoice to check. Use /start to view your membership."
+            )
+            return
+        action = "check:" + order["id"]
+    if action:
+        await handle_action(update, context, action)
+    else:
+        await incoming(update, context)
+
+
 async def incoming(update, context):
     if update.effective_chat.type != ChatType.PRIVATE:
         return
@@ -234,7 +247,7 @@ async def incoming(update, context):
     oid = context.user_data.get("refund_invoice")
     if not oid:
         await message.reply_text(
-            "Use /start for membership, /support for a question, or /refund for a completed month."
+            "Choose an option from the keyboard below, or use /start, /support or /refund."
         )
         return
     evidence = (message.text or message.caption or "").strip()

@@ -4,6 +4,10 @@ A Telegram-native membership bot for Batna Trades. The service is written in
 Python, not TypeScript. The original workspace's API and mockup packages are not
 part of the bot.
 
+All menu and action buttons use Telegram's persistent reply keyboard below the
+chat composer. Invite links are clickable text in the message: Telegram reply
+keyboards do not support URL buttons. The bot does not use popup inline buttons.
+
 ## Run
 
 ```sh

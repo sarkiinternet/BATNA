@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta
 
 import psycopg
-from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ChatMember
 from telegram.error import TelegramError
 
 from . import ui
@@ -168,10 +168,10 @@ class Service:
                         f"{order['period_end']:%d %b %Y, %H:%M} UTC\n\n"
                         "Your access is ready. Tap below to request entry into the private channel.",
                     ), parse_mode="HTML",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("Enter signals channel", callback_data="access")],
-                        [InlineKeyboardButton("My membership", callback_data="status")],
-                    ]),
+                    reply_markup=ui.keyboard([
+                        ["Enter private signals channel"],
+                        ["My membership"],
+                    ])[0],
                 )
                 self.store.mark_delivered(order["id"])
             except TelegramError:

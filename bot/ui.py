@@ -1,13 +1,46 @@
-"""Telegram-native presentation: restrained branding, readable copy, inline controls."""
+"""Telegram-native presentation with buttons in the normal reply keyboard."""
 
 from html import escape
 
-from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Keyboard
+from telegram import KeyboardButton, ReplyKeyboardMarkup
 
 from .store import now
 
 BRAND = "<b>BATNA TRADES</b>\n<code>P R E M I U M   S I G N A L S</code>"
 RULE = "━━━━━━━━━━━━━━━━━━━━"
+
+BUTTON_ACTIONS = {
+    "Explore membership · 20 USDT": "plans",
+    "My membership": "status",
+    "Refund promise": "promise",
+    "Help & support": "help",
+    "Privacy": "privacy",
+    "I've joined — verify": "joined",
+    "Agree & pay · Bybit UID": "buy:uid",
+    "Agree & pay · USDT BEP20": "buy:bep20",
+    "I've paid · check payment": "check",
+    "Payment support": "help",
+    "Enter private signals channel": "access",
+    "Request a refund": "refund",
+    "Home": "home",
+    "Back to home": "home",
+    "Back": "home",
+    "Renew / subscribe": "plans",
+}
+
+
+def keyboard(rows, actions=None):
+    """Put options beneath the composer; persist the keyboard across screens."""
+    mapping = dict(BUTTON_ACTIONS)
+    if actions:
+        mapping.update(actions)
+    markup = ReplyKeyboardMarkup(
+        [[KeyboardButton(label) for label in row] for row in rows],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Choose an option below",
+    )
+    return markup, mapping
 
 
 def card(title, body):
@@ -15,17 +48,15 @@ def card(title, body):
 
 
 def menu():
-    return Keyboard([
-        [Button("Explore membership · 20 USDT", callback_data="plans")],
-        [Button("My membership", callback_data="status"),
-         Button("Refund promise", callback_data="promise")],
-        [Button("Help & support", callback_data="help"),
-         Button("Privacy", callback_data="privacy")],
+    return keyboard([
+        ["Explore membership · 20 USDT"],
+        ["My membership", "Refund promise"],
+        ["Help & support", "Privacy"],
     ])
 
 
 def back():
-    return Keyboard([[Button("Back to home", callback_data="home")]])
+    return keyboard([["Back to home"]])
 
 
 def welcome():
@@ -39,17 +70,14 @@ def welcome():
         "If you finish your subscription month in the negative from our signals, "
         "we refund your subscription fee after reviewing your claim under the "
         "published policy. Trading losses are not covered.\n\n"
-        "<i>Start by joining our public community. Trading involves risk; "
-        "signals do not guarantee a profit.</i>",
+        '<i>Start by <a href="https://t.me/BatnaTrades">joining our public community</a>. '
+        "Trading involves risk; signals do not guarantee a profit.</i>",
     )
 
 
-def join_keyboard(link):
-    return Keyboard([
-        [Button("1 · Join Batna Trades", url=link)],
-        [Button("2 · I've joined — verify", callback_data="joined")],
-        [Button("Back", callback_data="home")],
-    ])
+def join_keyboard(_link):
+    # Reply keyboards cannot carry URL buttons; the chat message contains a clickable link.
+    return keyboard([["I've joined — verify"], ["Back"]])
 
 
 def plan(policy):
@@ -69,10 +97,10 @@ def plan(policy):
 
 
 def payment_methods():
-    return Keyboard([
-        [Button("Agree & pay · Bybit UID", callback_data="buy:uid")],
-        [Button("Agree & pay · USDT BEP20", callback_data="buy:bep20")],
-        [Button("Back", callback_data="home")],
+    return keyboard([
+        ["Agree & pay · Bybit UID"],
+        ["Agree & pay · USDT BEP20"],
+        ["Back"],
     ])
 
 
@@ -99,11 +127,10 @@ def invoice(order):
 
 
 def invoice_buttons(oid):
-    return Keyboard([
-        [Button("I've paid · check payment", callback_data=f"check:{oid}")],
-        [Button("Payment support", callback_data="help"),
-         Button("Home", callback_data="home")],
-    ])
+    return keyboard(
+        [["I've paid · check payment"], ["Payment support", "Home"]],
+        {"I've paid · check payment": f"check:{oid}"},
+    )
 
 
 def status(member):
@@ -122,13 +149,13 @@ def status(member):
 def status_buttons(active):
     rows = []
     if active:
-        rows.append([Button("Enter private signals channel", callback_data="access")])
+        rows.append(["Enter private signals channel"])
     rows.extend([
-        [Button("Renew / subscribe", callback_data="plans")],
-        [Button("Request a refund", callback_data="refund")],
-        [Button("Home", callback_data="home")],
+        ["Renew / subscribe"],
+        ["Request a refund"],
+        ["Home"],
     ])
-    return Keyboard(rows)
+    return keyboard(rows)
 
 
 PRIVACY = (

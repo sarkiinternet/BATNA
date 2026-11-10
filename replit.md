@@ -48,6 +48,7 @@ Public-channel join verification, two Bybit-verified USDT payment routes, calend
 ## User preferences
 
 - The user requested a Python bot and a stylish, beautiful Telegram experience.
+- Keep every menu and action button in Telegram's regular reply keyboard, never inline/popup buttons. Put links in message text.
 - The subscription offer is $20 monthly, with a subscription-fee refund if the subscriber ends the month negative; trading losses are not reimbursed.
 - The user chose UID and BEP20 rather than Telegram Stars.
 
