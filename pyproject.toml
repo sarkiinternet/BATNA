@@ -1,10 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "batna"
 version = "0.1.0"
-description = "Add your description here"
-authors = [
-    { name = "sarkiinternet", email = "abdulbaasitabdulnaasir@gmail.com" }
-]
+description = "Batna Trades Telegram bot"
 requires-python = ">=3.13"
 dependencies = [
     "cryptography>=46,<47",
@@ -12,8 +9,8 @@ dependencies = [
     "python-telegram-bot[job-queue]>=22.5,<23",
 ]
 
-[project.scripts]
-repl-nix-workspace = "repl_nix_workspace:main"
+[tool.uv]
+package = false
 
 [build-system]
 requires = ["uv_build>=0.13.4,<0.14.0"]
