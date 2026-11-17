@@ -64,7 +64,15 @@ async def handle_action(update, context, action):
         if action == "home":
             context.user_data.pop("support_pending", None)
             await show(update, context, ui.welcome(), ui.menu())
-        elif action in ("plans", "joined"):
+        elif action == "joined":
+            if not await s.joined(context.bot, uid):
+                await show(
+                    update, context, ui.join_required(s.config.public_link),
+                    ui.join_keyboard(s.config.public_link),
+                )
+                return
+            await show(update, context, ui.welcome(), ui.menu())
+        elif action == "plans":
             if not await s.joined(context.bot, uid):
                 await show(
                     update, context, ui.join_required(s.config.public_link),
@@ -310,69 +318,33 @@ async def incoming(update, context):
         await message.reply_text(
             "Payment verified. Membership will activate shortly."
             if verified else
-            "Payment details sent for verification. If it takes more than 10 minutes, "
-            "choose Help & support to contact the admin. Do not pay again."
+            "Payment received. Verification is in progress. "
+            "If it takes more than 10 minutes, use Help & support. Do not pay again."
         )
         return
-    await message.reply_text("Choose an option from the keyboard below.")
+    await message.reply_text("Use the buttons below.")
+
 
 async def join_request(update, context):
     s = context.application.bot_data["service"]
     request = update.chat_join_request
-    if request.chat.id != s.store.get("vip_chat"):
+    if not s.store.active(request.from_user.id):
+        await request.decline()
         return
-    uid = request.from_user.id
-    # All join-request links, even leaked ones, enforce the paid identity.
-    try:
-        allowed = s.store.active(uid) and await s.joined(context.bot, uid)
-        if allowed:
-            await request.approve()
-        else:
-            await request.decline()
-    except TelegramError:
+    if not await s.joined(context.bot, request.from_user.id):
+        await request.decline()
         return
+    await request.approve()
 
 
 async def bot_membership(update, context):
     s = context.application.bot_data["service"]
-    change = update.my_chat_member
-    if (change.chat.type in (ChatType.SUPERGROUP, ChatType.CHANNEL)
-            and change.new_chat_member.status == ChatMemberStatus.ADMINISTRATOR
-            and not change.chat.username):
+    result = update.my_chat_member
+    if result.new_chat_member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR):
         try:
-            if await s.is_owner(context.bot, change.from_user.id):
-                name = await s.bind_vip(context.bot, change.from_user.id, change.chat.id)
-                await s.notify_owner(
-                    context.bot, f"Private signals group connected: <b>{escape(name)}</b>. "
-                    "Checkout remains paused until the remaining setup is complete.",
-                )
-        except (TelegramError, ValueError):
+            await s.bind_vip(context.bot, result.from_user.id, result.chat.id)
+        except (ValueError, TelegramError):
             pass
-
-
-async def basic(update, context):
-    if update.effective_chat.type != ChatType.PRIVATE:
-        return
-    command = update.message.text.split()[0].split("@")[0]
-    s = context.application.bot_data["service"]
-    if command == "/cancel":
-        await update.message.reply_text("Cancelled. Your payment history and membership are unchanged.")
-    elif command == "/privacy":
-        await show(update, context, ui.card("Your data, explained", ui.PRIVACY), ui.back())
-    elif command == "/delete":
-        uid = update.effective_user.id
-        delivered = await s.notify_owner(
-            context.bot, f"<b>Data deletion requested</b>\nMember: <code>{uid}</code>\n"
-            "Review active subscriptions, pending payments and any legal retention requirements. "
-            f"Reply with /reply, then use <code>/erase {uid}</code> when resolved.",
-        )
-        await update.message.reply_text(
-            "Your deletion request was sent to the administrator for review."
-            if delivered else "The administrator is not reachable through the bot yet. "
-            "Contact the public channel administrator to request deletion."
-        )
-    elif command == "/id":
-        await update.message.reply_text(f"Your Telegram user ID: {update.effective_user.id}")
 
 
 async def on_callback(update, context):
